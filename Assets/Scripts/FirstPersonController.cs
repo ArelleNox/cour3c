@@ -8,16 +8,20 @@ public class PlayerController : MonoBehaviour
     [SerializeField, Tooltip("Additional speed, total run speed is moveSpeed + runSpeed.")]
     private float runSpeed = 2;
     [SerializeField] private AnimationCurve runCurve;
-    [Header("Mouse look parameters")]
-    [SerializeField] private float rotationSpeed = 10;
+    [SerializeField] private AnimationCurve jumpCurve;
     [SerializeField] private float additionalGravity = 10;
     [SerializeField] private float jumpForce = 10;
+    [SerializeField] private float jumpDuration = 1.5f;
     [SerializeField] private float bouncingPadMultiplier = 10;
+
+    [Header("Mouse look parameters")]
+    [SerializeField] private float rotationSpeed = 10;
     [SerializeField] private float sensitivity = 100;
     [SerializeField] private Transform originTsfm;
     [SerializeField] private LayerMask bouncingPadLayer;
     [Header("Headbob parameters")]
     [SerializeField] private AnimationCurve headbobCurve;
+    [SerializeField] private Transform camHolder;
     [SerializeField] private float headbobAmp = 0.05f;
     [SerializeField] private float headbobFreq = 3f;
     [SerializeField] private float headbobTime = 0.5f;
@@ -33,9 +37,11 @@ public class PlayerController : MonoBehaviour
     private bool jumping;
     private Vector3 moveX;
     private Vector3 moveY;
+    private float curPitch;
     private bool grounded;
     private bool onBouncingPad;
     private float runTimer;
+    private float jumpTimer;
     private float headbobTimer;
     private float headHeight;
     private Quaternion upperLimit;
@@ -55,6 +61,8 @@ public class PlayerController : MonoBehaviour
         jumping = false;
         onBouncingPad = false;
         runTimer = 0;
+        jumpTimer = 0;
+        curPitch = 0;
         headbobTimer = 0;
         headHeight = mainCam.transform.localPosition.y;
         upperLimit = Quaternion.Euler(-80, 0, 0);
@@ -80,10 +88,6 @@ public class PlayerController : MonoBehaviour
                 {
                     grounded = true;
                 }
-            }
-            else
-            {
-                jumping = false;
             }
         }
         
@@ -126,8 +130,14 @@ public class PlayerController : MonoBehaviour
         }
 
         // Headbob
+        if (Physics.Raycast(camHolder.position, mainCam.transform.forward, out RaycastHit hitInf, 30))
+        {
+            Vector3 focusPoint = hitInf.point;
+            float focusPointDist = hitInf.distance;
+        }
+
         //mainCam.transform.localPosition = new Vector3(0, headHeight + Mathf.Sin(headbobTimer * headbobFreq * rb.linearVelocity.magnitude) * headbobAmp, 0);
-        if (rb.linearVelocity.magnitude > 0.01f)
+        if (rb.linearVelocity.magnitude > 0.01f && !jumping)
         {
             mainCam.transform.localPosition = new Vector3(0, headHeight + headbobCurve.Evaluate(headbobTimer / headbobTime) * headbobAmp, 0);
             headbobTimer += Time.deltaTime;
@@ -144,34 +154,17 @@ public class PlayerController : MonoBehaviour
         if (!invertYAxis)
             mouseDelta.y = -mouseDelta.y;
 
-        Quaternion limit = Quaternion.identity * upperLimit;
         float mouseMovement = rotationSpeed * (mouseDelta.y / Screen.height) * Time.deltaTime;
-        if (mouseMovement > 0) // Up movement
-        {
-            limit = Quaternion.identity * upperLimit;
 
-            Debug.Log(limit.eulerAngles.x);
-        }
-        else if (mouseMovement < 0) // Down movement
-        {
-            limit = Quaternion.identity * bottomLimit;
+        curPitch += mouseMovement;
+        curPitch = Mathf.Clamp(curPitch, -90, 90);
 
-            Debug.Log(limit.eulerAngles.x);
-        }
-
-        if (Mathf.Abs(mouseMovement) < Quaternion.Angle(mainCam.transform.localRotation * Quaternion.Euler(mouseMovement, 0, 0), limit))
-        {
-            mainCam.transform.localRotation *= Quaternion.Euler(mouseMovement, 0, 0);
-        }
-        else
-        {
-            mainCam.transform.localRotation = limit;
-        }
+        mainCam.transform.localRotation = Quaternion.Euler(curPitch, 0, 0);
     }
 
     private void FixedUpdate()
     {
-        //todo rb.MoveRotation();
+        //rb.MoveRotation();
 
         if (jump)
         {
@@ -179,7 +172,9 @@ public class PlayerController : MonoBehaviour
             {
                 if (grounded)
                 {
-                    rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+                    //rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+
+                    jumpTimer = 0;
                 }
                 else if (onBouncingPad)
                 {
@@ -190,16 +185,28 @@ public class PlayerController : MonoBehaviour
                 jump = false;
             }
         }
+        else if (jumping) // Jump impulsion phaze
+        {
+            float jumpVel = jumpCurve.Evaluate(jumpTimer / jumpDuration) * jumpForce * Time.deltaTime;
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpVel, rb.linearVelocity.z);
+            
+            jumpTimer += Time.deltaTime;
+            if (jumpTimer > jumpDuration)
+            {
+                jumpTimer = 0;
+                jumping = false;
+            }
+        }
         else if (!jumping)
         {
-            if (grounded)
+            if (grounded) // Regular movement
             {
                 rb.linearVelocity = (moveX + moveY).normalized * curSpeed * Time.deltaTime;
 
                 moveX = Vector3.zero;
                 moveY = Vector3.zero;
             }
-            else
+            else // Jump descent phaze
             {
                 rb.linearVelocity += (moveX + moveY).normalized * airMoveSpeed * Time.deltaTime;
                 //rb.AddForce((moveX + moveY).normalized * airMoveSpeed * Time.deltaTime, ForceMode.Force);

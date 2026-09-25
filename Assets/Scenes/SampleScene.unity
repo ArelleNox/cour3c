@@ -345,12 +345,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.12091653, y: 0, z: 0, w: 0.9926627}
-  m_LocalPosition: {x: 0, y: 0.72, z: 0}
+  m_LocalRotation: {x: -0.12091653, y: -0, z: -0, w: 0.9926627}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1122255142}
+  m_Father: {fileID: 1082514171}
   m_LocalEulerAnglesHint: {x: -13.89, y: 0, z: 0}
 --- !u!114 &330585547
 MonoBehaviour:
@@ -827,6 +827,38 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1082514170
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1082514171}
+  m_Layer: 0
+  m_Name: CamHolder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1082514171
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1082514170}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.72, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 330585546}
+  m_Father: {fileID: 1122255142}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1122255138
 GameObject:
   m_ObjectHideFlags: 0
@@ -941,7 +973,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 330585546}
+  - {fileID: 1082514171}
   - {fileID: 424988122}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -993,10 +1025,62 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  rotationSpeed: 1000
+  jumpCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 5.504679
+      outSlope: 5.504679
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.1672654
+    - serializedVersion: 3
+      time: 0.05920182
+      value: 0.30428308
+      inSlope: 4.089412
+      outSlope: 4.089412
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.5998403
+      outWeight: 0.26111224
+    - serializedVersion: 3
+      time: 0.16910458
+      value: 0.6292812
+      inSlope: 2.5520568
+      outSlope: 2.5520568
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.38869515
+      outWeight: 0.31831536
+    - serializedVersion: 3
+      time: 0.38644394
+      value: 0.9052499
+      inSlope: 0.49792406
+      outSlope: 0.49792406
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.5003509
+      outWeight: 0.15146121
+    - serializedVersion: 3
+      time: 1.0012817
+      value: 1
+      inSlope: 0.036095005
+      outSlope: 0.036095005
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.19890442
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   additionalGravity: 750
-  jumpForce: 400
+  jumpForce: 250
+  jumpDuration: 0.1
   bouncingPadMultiplier: 4
+  rotationSpeed: 1000
   sensitivity: 100
   originTsfm: {fileID: 424988122}
   bouncingPadLayer:

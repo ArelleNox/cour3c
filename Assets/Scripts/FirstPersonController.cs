@@ -1,7 +1,11 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("General")]
+    [SerializeField] private InputActionAsset inputActions;
+
     [Header("Move parameters")]
     [SerializeField] private float moveSpeed = 10;
     [SerializeField] private float airMoveSpeed = 5;
@@ -19,44 +23,58 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float sensitivity = 100;
     [SerializeField] private Transform originTsfm;
     [SerializeField] private LayerMask bouncingPadLayer;
+    
     [Header("Headbob parameters")]
     [SerializeField] private AnimationCurve headbobCurve;
     [SerializeField] private Transform camHolder;
     [SerializeField] private float headbobAmp = 0.05f;
     [SerializeField] private float headbobFreq = 3f;
     [SerializeField] private float headbobTime = 0.5f;
+    [SerializeField] private bool eyeStabilization = true;
 
     private bool invertYAxis = false;
     
-    private Camera mainCam;
+    private Transform mainCam;
     private Rigidbody rb;
     private CapsuleCollider coll;
-
+    private float headHeight;
     private float curSpeed;
     private bool jump;
     private bool jumping;
-    private Vector3 moveX;
-    private Vector3 moveY;
+    private Vector3 moveVector;
     private float curPitch;
+    private Quaternion yRotation;
     private bool grounded;
     private bool onBouncingPad;
     private float runTimer;
     private float jumpTimer;
     private float headbobTimer;
-    private float headHeight;
-    private Quaternion upperLimit;
-    private Quaternion bottomLimit;
+
+    private InputActionMap actionMap;
+    private InputAction moveAction;
+    private InputAction lookAction;
+    private InputAction runAction;
+    private InputAction jumpAction;
 
 
     void Awake()
     {
+        actionMap = inputActions.FindActionMap("FirstPerson");
+        actionMap.Enable();
+
+        moveAction = actionMap.FindAction("Move");
+        lookAction = actionMap.FindAction("Look");
+        runAction = actionMap.FindAction("Run");
+        jumpAction = actionMap.FindAction("Jump");
+
         rb = GetComponent<Rigidbody>();
         coll = GetComponent<CapsuleCollider>();
-        mainCam = GetComponentInChildren<Camera>();
+        mainCam = GetComponentInChildren<Camera>().transform;
 
         curSpeed = moveSpeed;
-        moveX = Vector3.zero;
-        moveY = Vector3.zero;
+        moveVector = Vector3.zero;
+        yRotation = Quaternion.identity;
+        headHeight = mainCam.transform.position.y;
         jump = false;
         jumping = false;
         onBouncingPad = false;
@@ -64,61 +82,42 @@ public class PlayerController : MonoBehaviour
         jumpTimer = 0;
         curPitch = 0;
         headbobTimer = 0;
-        headHeight = mainCam.transform.localPosition.y;
-        upperLimit = Quaternion.Euler(-80, 0, 0);
-        bottomLimit = Quaternion.Euler(80, 0, 0);
     }
 
     // Update is called once per frame
     void Update()
     {
+        // Hide & lock mouse cursor inside the screen
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = true;
 
+        // Set grounded or not state
         grounded = false;
-        if (Physics.SphereCast(originTsfm.position, coll.radius, -transform.up, out RaycastHit hit, 2f, LayerMask.GetMask("Ground", "BouncingPad")))
+        if (Physics.SphereCast(originTsfm.position, coll.radius, -transform.up, out RaycastHit hit, (coll.height * 0.5f) - coll.radius + 0.1f, LayerMask.GetMask("Ground", "BouncingPad")))
         {
-            if (hit.distance <= (coll.height * 0.5f) - coll.radius + 0.1f)
+            if (hit.transform.gameObject.layer == LayerMask.NameToLayer("BouncingPad"))
             {
-                if (hit.transform.gameObject.layer == LayerMask.NameToLayer("BouncingPad"))
-                {
-                    onBouncingPad = true;
-                }
-                else
-                {
-                    grounded = true;
-                }
+                onBouncingPad = true;
+            }
+            else
+            {
+                grounded = true;
             }
         }
-        
-        if (Input.GetKey(KeyCode.W))
-        {
-            moveX = transform.forward;
-        }
-        else if (Input.GetKey(KeyCode.S))
-        {
-            moveX = -transform.forward;
-        }
-        
-        if (Input.GetKey(KeyCode.A))
-        {
-            moveY = -transform.right;
-        }
-        else if (Input.GetKey(KeyCode.D))
-        {
-            moveY = transform.right;
-        }
 
+        // Set movement vector from input to be used in fixedupdate
+        Vector2 v = moveAction.ReadValue<Vector2>();
+        moveVector = transform.forward * v.y + transform.right * v.x;
+
+        // Set jump boolean to be used in fixedupdate
         if (Input.GetKeyDown(KeyCode.Space))
         {
             jump = true;
         }
 
-        // Run
+        // Increase current speed if running
         if (Input.GetKey(KeyCode.LeftShift))
         {
-            //curSpeed = moveSpeed * Mathf.Lerp(1, runFactor, Mathf.Pow(runTimer / 1.5f, 4));
-            //curSpeed = Mathf.Lerp(moveSpeed, moveSpeed * runCurve.Evaluate(runTimer / 1.5f) * runFactor, runTimer / 1.5f);
             curSpeed = moveSpeed + runCurve.Evaluate(runTimer / 1.5f) * runSpeed;
 
             runTimer += Time.deltaTime;
@@ -129,17 +128,39 @@ public class PlayerController : MonoBehaviour
             runTimer = 0;
         }
 
-        // Headbob
-        if (Physics.Raycast(camHolder.position, mainCam.transform.forward, out RaycastHit hitInf, 30))
+        // Eyes stabilization, find the focus point and make the headbob look at it
+        float maxDist = 30f;
+        float focusPointDist = maxDist;
+        Vector3 focusPoint = camHolder.position + camHolder.forward * maxDist;
+        if (Physics.Raycast(camHolder.position, camHolder.forward, out RaycastHit hitInf, maxDist, ~LayerMask.GetMask("Player")))
         {
-            Vector3 focusPoint = hitInf.point;
-            float focusPointDist = hitInf.distance;
+            focusPoint = hitInf.point;
+            focusPointDist = hitInf.distance;
         }
 
-        //mainCam.transform.localPosition = new Vector3(0, headHeight + Mathf.Sin(headbobTimer * headbobFreq * rb.linearVelocity.magnitude) * headbobAmp, 0);
+        // Vector of the headbob looking forward (this is what we want to change)
+        Vector3 forwardHeadBobVec = camHolder.forward;
+        Debug.DrawRay(mainCam.position, forwardHeadBobVec * focusPointDist, Color.red);
+
+        // Vector of the headbob looking toward the focus point (what we're trying to achieve)
+        Vector3 focusHeadbobVec = focusPoint - mainCam.position;
+        
+        // Eye vector debug (where the eye should focus theoretically)
+        Debug.DrawRay(camHolder.position, camHolder.forward * focusPointDist, Color.blue);
+
+        // Point the mainCam toward the focusPoint
+        if (eyeStabilization)
+        {
+            mainCam.rotation = Quaternion.LookRotation(focusHeadbobVec, Vector3.up);
+            Debug.DrawRay(mainCam.position, focusHeadbobVec, Color.orange);
+        }
+
+        // Headbob (the mainCam inside the camHolder)
         if (rb.linearVelocity.magnitude > 0.01f && !jumping)
         {
-            mainCam.transform.localPosition = new Vector3(0, headHeight + headbobCurve.Evaluate(headbobTimer / headbobTime) * headbobAmp, 0);
+            // Headbob position is set in world space to keep it straight
+            mainCam.position = new Vector3(mainCam.position.x, headHeight + headbobCurve.Evaluate(headbobTimer / headbobTime) * headbobAmp, mainCam.position.z);
+            
             headbobTimer += Time.deltaTime;
             if (headbobTimer > headbobTime)
             {
@@ -148,23 +169,25 @@ public class PlayerController : MonoBehaviour
         }
 
         // Mouse look
-        Vector3 mouseDelta = Input.mousePositionDelta * sensitivity;
-        transform.rotation *= Quaternion.Euler(0, rotationSpeed * (mouseDelta.x / Screen.width) * Time.deltaTime, 0);
+        Vector3 mouseDelta = lookAction.ReadValue<Vector2>() * sensitivity;
+        yRotation *= Quaternion.Euler(0, rotationSpeed * (mouseDelta.x / Screen.width) * Time.deltaTime, 0);
 
         if (!invertYAxis)
             mouseDelta.y = -mouseDelta.y;
 
         float mouseMovement = rotationSpeed * (mouseDelta.y / Screen.height) * Time.deltaTime;
-
+        
+        // Limit upper and lower orientation of the camera
         curPitch += mouseMovement;
         curPitch = Mathf.Clamp(curPitch, -90, 90);
 
-        mainCam.transform.localRotation = Quaternion.Euler(curPitch, 0, 0);
+        // camHolder holds the mainCam
+        camHolder.localRotation = Quaternion.Euler(curPitch, 0, 0);
     }
 
     private void FixedUpdate()
     {
-        //rb.MoveRotation();
+        rb.MoveRotation(yRotation);
 
         if (jump)
         {
@@ -172,8 +195,6 @@ public class PlayerController : MonoBehaviour
             {
                 if (grounded)
                 {
-                    //rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
-
                     jumpTimer = 0;
                 }
                 else if (onBouncingPad)
@@ -201,15 +222,12 @@ public class PlayerController : MonoBehaviour
         {
             if (grounded) // Regular movement
             {
-                rb.linearVelocity = (moveX + moveY).normalized * curSpeed * Time.deltaTime;
+                rb.linearVelocity = moveVector.normalized * curSpeed * Time.deltaTime;
 
-                moveX = Vector3.zero;
-                moveY = Vector3.zero;
             }
             else // Jump descent phaze
             {
-                rb.linearVelocity += (moveX + moveY).normalized * airMoveSpeed * Time.deltaTime;
-                //rb.AddForce((moveX + moveY).normalized * airMoveSpeed * Time.deltaTime, ForceMode.Force);
+                rb.linearVelocity += moveVector.normalized * airMoveSpeed * Time.deltaTime;
 
                 rb.AddForce(Vector3.down * additionalGravity, ForceMode.Force);
             }

@@ -3257,6 +3257,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 2814250485693650984, guid: c0929c9defb42eb418fe76564c181866, type: 3}
+      propertyPath: m_Icon
+      value: 
+      objectReference: {fileID: 5132851093641282708, guid: 0000000000000000d000000000000000, type: 0}
+    - target: {fileID: 2814250485693650984, guid: c0929c9defb42eb418fe76564c181866, type: 3}
       propertyPath: m_Name
       value: PlayerHuman
       objectReference: {fileID: 0}
@@ -3301,7 +3305,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 2555124929086852129, guid: c0929c9defb42eb418fe76564c181866, type: 3}
+    - {fileID: 7458367054371971729, guid: c0929c9defb42eb418fe76564c181866, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c0929c9defb42eb418fe76564c181866, type: 3}

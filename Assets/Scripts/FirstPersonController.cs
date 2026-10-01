@@ -41,7 +41,7 @@ public class FirstPersonController : MonoBehaviour
     private const float MaxPitch = 85f;
     private const float FocusMaxDist = 30f;
 
-    // Animator hashes (Ã©vite les recherches par string)
+    // Animator hashes (évite les recherches par string)
     private static readonly int HorSpeedHash = Animator.StringToHash("HorSpeed");
     private static readonly int VertSpeedHash = Animator.StringToHash("VertSpeed");
     private static readonly int RunHash = Animator.StringToHash("Run");
@@ -135,11 +135,11 @@ public class FirstPersonController : MonoBehaviour
 
         HandleMovementInput();
         HandleMouseLook();
-    }   
+    }
 
     private void LateUpdate()
     {
-        // La camÃ©ra est gÃ©rÃ©e aprÃ¨s tous les Update pour Ã©viter un dÃ©calage d'une frame
+        // La caméra est gérée après tous les Update pour éviter un décalage d'une frame
         HandleHeadbob();
         HandleEyeStabilization();
     }
@@ -148,7 +148,7 @@ public class FirstPersonController : MonoBehaviour
     {
         _rb.MoveRotation(_yRotation);
 
-        // DÃ©marrage d'un saut : uniquement au sol et pas dÃ©jÃ  en train de sauter
+        // Démarrage d'un saut : uniquement au sol et pas déjà en train de sauter
         if (_jumpRequested)
         {
             _jumpRequested = false;
@@ -174,7 +174,7 @@ public class FirstPersonController : MonoBehaviour
                 _jumping = false;
             }
         }
-        else if (_grounded) // DÃ©placement normal : on garde la vitesse verticale
+        else if (_grounded) // Déplacement normal : on garde la vitesse verticale
         {
             Vector3 horizontal = _moveVector * _curSpeed;
             _rb.linearVelocity = new Vector3(horizontal.x, _rb.linearVelocity.y, horizontal.z);
@@ -217,7 +217,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        // Le delta souris est dÃ©jÃ  "par frame" : pas de Time.deltaTime
+        // Le delta souris est déjà "par frame" : pas de Time.deltaTime
         Vector2 mouseDelta = _lookAction.ReadValue<Vector2>() * sensitivity;
 
         _yRotation *= Quaternion.Euler(0, rotationSpeed * (mouseDelta.x / Screen.width), 0);
@@ -248,7 +248,7 @@ public class FirstPersonController : MonoBehaviour
         }
         else
         {
-            // Ã€ l'arrÃªt, la camÃ©ra revient doucement Ã  sa position de repos
+            // À l'arrêt, la caméra revient doucement à sa position de repos
             _headbobTimer = 0;
             _mainCam.localPosition = Vector3.Lerp(_mainCam.localPosition, Vector3.zero, headbobReturnSpeed * Time.deltaTime);
         }
@@ -262,7 +262,7 @@ public class FirstPersonController : MonoBehaviour
             return;
         }
 
-        // Point de focus : lÃ  oÃ¹ regarde le camHolder
+        // Point de focus : là où regarde le camHolder
         float focusPointDist = FocusMaxDist;
         Vector3 focusPoint = camHolder.position + camHolder.forward * FocusMaxDist;
         if (Physics.Raycast(camHolder.position, camHolder.forward, out RaycastHit hitInf, FocusMaxDist, _focusMask))
@@ -286,7 +286,7 @@ public class FirstPersonController : MonoBehaviour
     {
         _rb.linearVelocity += _moveVector * (airMoveSpeed * Time.fixedDeltaTime);
 
-        // On borne la vitesse horizontale pour qu'elle ne grimpe pas Ã  l'infini en l'air
+        // On borne la vitesse horizontale pour qu'elle ne grimpe pas à l'infini en l'air
         Vector3 v = _rb.linearVelocity;
         Vector3 horizontal = Vector3.ClampMagnitude(new Vector3(v.x, 0, v.z), moveSpeed + runSpeed);
         _rb.linearVelocity = new Vector3(horizontal.x, v.y, horizontal.z);

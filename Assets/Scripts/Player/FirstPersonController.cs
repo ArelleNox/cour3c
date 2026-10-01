@@ -24,7 +24,7 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Mouse look parameters")]
     [SerializeField] private float rotationSpeed = 10f;
-    [SerializeField] private float sensitivity = 30f;
+    [SerializeField] private float sensitivity = 25;
     [SerializeField] private Transform originTsfm;
 
     [Header("Headbob parameters")]

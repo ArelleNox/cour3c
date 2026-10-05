@@ -10,7 +10,7 @@ public class BikeController : MonoBehaviour
     private Transform visual;
 
     [Header("Speed parameters")]
-    [SerializeField] private float maxSpeed = 35f;
+    [SerializeField] private float maxSpeed = 50f;
     [SerializeField, Tooltip("Fast acceleration (m/s per second).")]
     private float acceleration = 20f;
     [SerializeField, Tooltip("Low value = strong inertia when releasing the accelerator.")]
@@ -46,7 +46,6 @@ public class BikeController : MonoBehaviour
     private float _steer;
     private float _lean;
 
-    // Read by BikeCamera
     public float Speed => _speed;
     public float Speed01 => Mathf.Clamp01(_speed / Mathf.Max(maxSpeed, 0.01f));
 

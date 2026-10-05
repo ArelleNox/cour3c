@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -24,7 +23,7 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Mouse look parameters")]
     [SerializeField] private float rotationSpeed = 10f;
-    [SerializeField] private float sensitivity = 25;
+    [SerializeField] private float sensitivity = 20;
     [SerializeField] private Transform originTsfm;
 
     [Header("Headbob parameters")]
@@ -108,6 +107,9 @@ public class FirstPersonController : MonoBehaviour
 
     private void OnEnable()
     {
+        _yRotation = _rb.rotation;
+        _curPitch = 0f;
+
         _actionMap.Enable();
         _jumpAction.performed += OnJump;
 
@@ -125,13 +127,6 @@ public class FirstPersonController : MonoBehaviour
     void Update()
     {
         CheckGrounded();
-
-        // Nouveau Input System
-        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
-        {
-            Transform seed = Instantiate(seedPrefab, transform.position + transform.forward * 2f, Quaternion.identity);
-            StartCoroutine(GrowCoroutine(seed));
-        }
 
         HandleMovementInput();
         HandleMouseLook();
@@ -299,17 +294,5 @@ public class FirstPersonController : MonoBehaviour
         // Plus l'appui est long, plus le saut est fort (entre min et max)
         float charge = Mathf.Clamp01((float)context.duration / maxJumpTime);
         _pendingJumpForce = Mathf.Lerp(minJumpForce, maxJumpForce, charge);
-    }
-
-    private IEnumerator GrowCoroutine(Transform seed)
-    {
-        for (float s = 0.1f; s < maxSeedSize; s += Time.deltaTime)
-        {
-            if (seed == null) yield break;
-
-            seed.localScale = new Vector3(s, s, s);
-
-            yield return null;
-        }
     }
 }

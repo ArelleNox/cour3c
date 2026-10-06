@@ -80,6 +80,8 @@ public class BikeController : MonoBehaviour
     {
         if (_actionMap == null) return;
         _actionMap.Enable();
+        _rb.isKinematic = false;
+
     }
 
     private void OnDisable()
@@ -94,7 +96,10 @@ public class BikeController : MonoBehaviour
         _lean = 0f;
 
         if (_rb != null)
+        {
             _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+            _rb.isKinematic = true;
+        }
 
         if (visual != null)
             visual.localRotation = Quaternion.identity;

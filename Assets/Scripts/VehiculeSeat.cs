@@ -1,20 +1,32 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
+// Generic seat : put one on each vehicle (bike, helicopter, train...).
 public class VehiculeSeat : MonoBehaviour
 {
     [Header("Player")]
     [SerializeField] private GameObject playerObject;
-    [SerializeField] private FirstPersonController playerController;
 
     [Header("Vehicle")]
-    [SerializeField] private BikeController bikeController;
-    [SerializeField] private GameObject bikeCamera;
+    [SerializeField, FormerlySerializedAs("bikeController"),
+     Tooltip("The controller script of THIS vehicle (BikeController, HelicopterController...).")]
+    private Behaviour vehicleController;
+    [SerializeField, FormerlySerializedAs("bikeCamera")] private GameObject vehicleCamera;
     [SerializeField] private Transform enterExit;
     [SerializeField] private float enterDistance = 3f;
 
+    [Header("Exit rules")]
+    [SerializeField, Tooltip("Tick for flying vehicles : the player can only get out close to the ground.")]
+    private bool requireGroundToExit = false;
+    [SerializeField] private float maxExitHeight = 3f;
+    [SerializeField] private LayerMask groundMask;
+
     [Header("Input")]
     [SerializeField] private InputActionAsset inputActions;
+
+    // Shared by all seats : prevents two seats from reacting to the same key press
+    private static int _lastActionFrame = -1;
 
     private bool _isRiding = false;
     private Rigidbody _playerRb;
@@ -26,6 +38,13 @@ public class VehiculeSeat : MonoBehaviour
         if (inputActions == null)
         {
             Debug.LogError("VehiculeSeat: Input Actions asset is not assigned.", this);
+            enabled = false;
+            return;
+        }
+
+        if (vehicleController == null || vehicleController == this)
+        {
+            Debug.LogError("VehiculeSeat: 'Vehicle Controller' must be the controller script of this vehicle (not empty, not the seat itself).", this);
             enabled = false;
             return;
         }
@@ -48,6 +67,9 @@ public class VehiculeSeat : MonoBehaviour
 
         if (playerObject != null)
             _playerRb = playerObject.GetComponent<Rigidbody>();
+
+        if (requireGroundToExit && groundMask.value == 0)
+            groundMask = LayerMask.GetMask("Ground");
     }
 
     private void OnEnable()
@@ -68,13 +90,21 @@ public class VehiculeSeat : MonoBehaviour
 
     private void OnInteract(InputAction.CallbackContext context)
     {
+        // Another seat already handled this key press
+        if (_lastActionFrame == Time.frameCount) return;
+
         if (_isRiding)
         {
-            ExitBike();
+            if (!CanExit()) return;
+
+            ExitVehicle();
+            _lastActionFrame = Time.frameCount;
         }
-        else if (IsPlayerInRange())
+        // The player is only active when nobody is riding any vehicle
+        else if (playerObject.activeSelf && IsPlayerInRange())
         {
-            EnterBike();
+            EnterVehicle();
+            _lastActionFrame = Time.frameCount;
         }
     }
 
@@ -84,23 +114,30 @@ public class VehiculeSeat : MonoBehaviour
         return dist <= enterDistance;
     }
 
-    private void EnterBike()
+    private bool CanExit()
+    {
+        if (!requireGroundToExit) return true;
+
+        return Physics.Raycast(transform.position, Vector3.down, maxExitHeight, groundMask, QueryTriggerInteraction.Ignore);
+    }
+
+    private void EnterVehicle()
     {
         // Turning the player off also turns off its camera, collider and FirstPerson input map
         playerObject.SetActive(false);
 
-        // BikeController.OnEnable enables the Vehicle map, BikeCamera.OnEnable snaps behind the bike
-        bikeController.enabled = true;
-        bikeCamera.SetActive(true);
+        // The controller and the camera snap into place in their own OnEnable
+        vehicleController.enabled = true;
+        vehicleCamera.SetActive(true);
 
         _isRiding = true;
     }
 
-    private void ExitBike()
+    private void ExitVehicle()
     {
-        // BikeController.OnDisable parks the bike and disables the Vehicle map
-        bikeController.enabled = false;
-        bikeCamera.SetActive(false);
+        // The controller parks the vehicle in its own OnDisable
+        vehicleController.enabled = false;
+        vehicleCamera.SetActive(false);
 
         // Move the player while it is still inactive, then wake it up
         playerObject.transform.SetPositionAndRotation(
@@ -122,5 +159,11 @@ public class VehiculeSeat : MonoBehaviour
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, enterDistance);
+
+        if (requireGroundToExit)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(transform.position, transform.position + Vector3.down * maxExitHeight);
+        }
     }
 }

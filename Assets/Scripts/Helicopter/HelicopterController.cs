@@ -9,31 +9,36 @@ public class HelicopterController : MonoBehaviour
     [SerializeField, Tooltip("Child holding the meshes. Only this one tilts, never the Rigidbody.")]
     private Transform visual;
 
+    [Header("Tilt")]
+    [SerializeField] private float maxTiltAngle = 20f;
+    [SerializeField, Tooltip("Degrees per second when a key is pressed. Low = heavy, slow to react.")]
+    private float tiltRate = 45f;
+    [SerializeField, Tooltip("Degrees per second when keys are released and the body levels out.")]
+    private float tiltReturnRate = 25f;
+    [SerializeField, Tooltip("Extra visual roll when turning (cosmetic only).")]
+    private float yawBankAngle = 8f;
+
     [Header("Horizontal movement")]
-    [SerializeField] private float maxHorizontalSpeed = 15f;
-    [SerializeField, Tooltip("Low value = slow, heavy start.")]
-    private float horizontalAcceleration = 8f;
-    [SerializeField, Tooltip("Low value = the helicopter keeps drifting when keys are released.")]
-    private float horizontalDeceleration = 4f;
+    [SerializeField, Tooltip("Acceleration (m/s2) when fully tilted.")]
+    private float maxTiltAcceleration = 10f;
+    [SerializeField, Tooltip("Air resistance. Low = the helicopter keeps drifting after you stop tilting.")]
+    private float horizontalDrag = 0.5f;
+    [SerializeField] private float maxHorizontalSpeed = 18f;
 
     [Header("Vertical movement")]
     [SerializeField] private float climbSpeed = 6f;
-    [SerializeField] private float verticalAcceleration = 6f;
+    [SerializeField] private float verticalAcceleration = 4f;
     [SerializeField, Tooltip("World height the helicopter cannot go above.")]
     private float maxAltitude = 80f;
 
     [Header("Yaw")]
-    [SerializeField] private float yawSpeed = 80f;
+    [SerializeField] private float yawSpeed = 70f;
     [SerializeField, Tooltip("How fast the yaw input builds up and fades out.")]
-    private float yawResponse = 4f;
-
-    [Header("Tilt")]
-    [SerializeField] private float maxTiltAngle = 20f;
-    [SerializeField] private float tiltSmoothing = 4f;
-    [SerializeField, Range(0f, 1f), Tooltip("0 = tilt follows the keys only, 1 = tilt follows the real velocity only.")]
-    private float velocityTiltBlend = 0.5f;
+    private float yawResponse = 3f;
 
     [Header("Rotors")]
+    [SerializeField, Tooltip("Time for the rotors to reach full power. The helicopter answers the controls only with the rotors spinning.")]
+    private float rotorSpinUpTime = 1.5f;
     [SerializeField] private Transform rotor;
     [SerializeField] private Vector3 rotorAxis = Vector3.up;
     [SerializeField] private float rotorSpinSpeed = 1000f;
@@ -50,6 +55,13 @@ public class HelicopterController : MonoBehaviour
     private Vector2 _move;
     private float _elevation;
     private float _yaw;
+
+    // Current body tilt in degrees : _pitch > 0 = nose down (forward), _roll > 0 = leaning right
+    private float _pitch;
+    private float _roll;
+
+    // 0 = rotors stopped, 1 = full power
+    private float _power;
 
     private void Awake()
     {
@@ -99,6 +111,9 @@ public class HelicopterController : MonoBehaviour
         _move = Vector2.zero;
         _elevation = 0f;
         _yaw = 0f;
+        _pitch = 0f;
+        _roll = 0f;
+        _power = 0f;
 
         if (_rb != null)
         {
@@ -117,6 +132,9 @@ public class HelicopterController : MonoBehaviour
         _move = _moveAction.ReadValue<Vector2>();
         _elevation = _elevationAction.ReadValue<float>();
 
+        // Rotors spin up progressively
+        _power = Mathf.MoveTowards(_power, 1f, Time.deltaTime / Mathf.Max(rotorSpinUpTime, 0.01f));
+
         // Yaw input builds up and fades out progressively
         float yawInput = _yawAction.ReadValue<float>();
         _yaw = Mathf.MoveTowards(_yaw, yawInput, yawResponse * Time.deltaTime);
@@ -130,22 +148,25 @@ public class HelicopterController : MonoBehaviour
         float dt = Time.fixedDeltaTime;
 
         // Yaw : the helicopter turns on itself
-        Quaternion newRotation = _rb.rotation * Quaternion.Euler(0f, _yaw * yawSpeed * dt, 0f);
+        Quaternion newRotation = _rb.rotation * Quaternion.Euler(0f, _yaw * yawSpeed * _power * dt, 0f);
         _rb.MoveRotation(newRotation);
 
         Vector3 vel = _rb.linearVelocity;
+        Vector3 horizontalVel = new Vector3(vel.x, 0f, vel.z);
 
-        // Horizontal : the keys give a target velocity, the real velocity moves toward it
-        Vector3 localInput = new Vector3(_move.x, 0f, _move.y);
-        Vector3 horizontalTarget = newRotation * Vector3.ClampMagnitude(localInput, 1f) * maxHorizontalSpeed;
+        // The tilt creates the acceleration : nose down pushes forward, leaning right pushes right
+        float forwardTilt = _pitch / maxTiltAngle;
+        float sideTilt = _roll / maxTiltAngle;
+        Vector3 acceleration = newRotation * new Vector3(sideTilt, 0f, forwardTilt) * (maxTiltAcceleration * _power);
 
-        bool hasInput = _move.sqrMagnitude > 0.0001f;
-        float horizontalRate = hasInput ? horizontalAcceleration : horizontalDeceleration;
+        horizontalVel += acceleration * dt;
 
-        Vector3 horizontalVel = Vector3.MoveTowards(new Vector3(vel.x, 0f, vel.z), horizontalTarget, horizontalRate * dt);
+        // Air resistance : without tilt the helicopter slowly drifts to a stop
+        horizontalVel *= Mathf.Exp(-horizontalDrag * dt);
+        horizontalVel = Vector3.ClampMagnitude(horizontalVel, maxHorizontalSpeed);
 
         // Vertical : no input = hover
-        float verticalTarget = _elevation * climbSpeed;
+        float verticalTarget = _elevation * climbSpeed * _power;
         if (_rb.position.y >= maxAltitude)
             verticalTarget = Mathf.Min(verticalTarget, 0f);
 
@@ -156,29 +177,29 @@ public class HelicopterController : MonoBehaviour
 
     private void UpdateTilt()
     {
+        // The body tilts toward the keys, and slowly levels out when they are released
+        float targetPitch = _move.y * maxTiltAngle;
+        float targetRoll = _move.x * maxTiltAngle;
+
+        float pitchRate = Mathf.Approximately(_move.y, 0f) ? tiltReturnRate : tiltRate;
+        float rollRate = Mathf.Approximately(_move.x, 0f) ? tiltReturnRate : tiltRate;
+
+        _pitch = Mathf.MoveTowards(_pitch, targetPitch, pitchRate * Time.deltaTime);
+        _roll = Mathf.MoveTowards(_roll, targetRoll, rollRate * Time.deltaTime);
+
         if (visual == null) return;
 
-        // Tilt mixes what the player asks (immediate) and what the helicopter really does (natural)
-        Vector3 localVel = transform.InverseTransformDirection(_rb.linearVelocity);
-        float velForward = Mathf.Clamp(localVel.z / maxHorizontalSpeed, -1f, 1f);
-        float velSide = Mathf.Clamp(localVel.x / maxHorizontalSpeed, -1f, 1f);
-
-        float forwardTilt = Mathf.Lerp(_move.y, velForward, velocityTiltBlend);
-        float sideTilt = Mathf.Lerp(_move.x, velSide, velocityTiltBlend);
-
         // Positive X rotation = nose down, negative Z rotation = lean right
-        Quaternion targetTilt = Quaternion.Euler(forwardTilt * maxTiltAngle, 0f, -sideTilt * maxTiltAngle);
-
-        float t = 1f - Mathf.Exp(-tiltSmoothing * Time.deltaTime);
-        visual.localRotation = Quaternion.Slerp(visual.localRotation, targetTilt, t);
+        float bank = -_roll - (_yaw * yawBankAngle);
+        visual.localRotation = Quaternion.Euler(_pitch, 0f, bank);
     }
 
     private void SpinRotors()
     {
         if (rotor != null)
-            rotor.Rotate(rotorAxis, rotorSpinSpeed * Time.deltaTime, Space.Self);
+            rotor.Rotate(rotorAxis, rotorSpinSpeed * _power * Time.deltaTime, Space.Self);
 
         if (tailRotor != null)
-            tailRotor.Rotate(tailRotorAxis, tailRotorSpinSpeed * Time.deltaTime, Space.Self);
+            tailRotor.Rotate(tailRotorAxis, tailRotorSpinSpeed * _power * Time.deltaTime, Space.Self);
     }
 }

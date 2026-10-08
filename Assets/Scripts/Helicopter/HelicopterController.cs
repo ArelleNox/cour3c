@@ -20,6 +20,8 @@ public class HelicopterController : MonoBehaviour
     private float tiltReturnRate = 25f;
     [SerializeField, Tooltip("Extra visual roll when turning (cosmetic only).")]
     private float yawBankAngle = 8f;
+    [SerializeField, Tooltip("Tilt of the model in degrees at full tilt. Only the look, the physics is not affected.")]
+    private float visualTiltAngle = 35f;
 
     [Header("Horizontal movement")]
     [SerializeField, Tooltip("Acceleration (m/s2) when fully tilted.")]
@@ -74,10 +76,20 @@ public class HelicopterController : MonoBehaviour
         _rb = GetComponent<Rigidbody>();
         _rb.useGravity = false;
 
+        if (visual == null)
+            visual = transform.Find("Visual");
+
         if (visual != null)
+        {
             _visualBaseRotation = visual.localRotation;
+
+            if (visual.GetComponentInChildren<Renderer>() == null)
+                Debug.LogWarning("HelicopterController: 'Visual' has no mesh inside it, so the tilt will be invisible. Put the helicopter meshes as children of Visual.", this);
+        }
         else
+        {
             Debug.LogWarning("HelicopterController: 'Visual' is not assigned, the helicopter cannot tilt.", this);
+        }
 
         if (inputActions == null)
         {
@@ -209,9 +221,14 @@ public class HelicopterController : MonoBehaviour
 
         if (visual == null) return;
 
+        // The physics tilt (-1..1) is scaled to the visual angle, so the look can be exaggerated freely
+        float pitch01 = _pitch / Mathf.Max(maxTiltAngle, 0.01f);
+        float roll01 = _roll / Mathf.Max(maxTiltAngle, 0.01f);
+
         // Positive X rotation = nose down, negative Z rotation = lean right
-        float bank = -_roll - (_yaw * yawBankAngle);
-        visual.localRotation = _visualBaseRotation * Quaternion.Euler(_pitch, 0f, bank);
+        float visualPitch = pitch01 * visualTiltAngle;
+        float visualBank = (-roll01 * visualTiltAngle) - (_yaw * yawBankAngle);
+        visual.localRotation = _visualBaseRotation * Quaternion.Euler(visualPitch, 0f, visualBank);
     }
 
     private void SpinRotors()

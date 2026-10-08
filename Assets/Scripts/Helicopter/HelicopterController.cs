@@ -6,11 +6,14 @@ public class HelicopterController : MonoBehaviour
 {
     [Header("General")]
     [SerializeField] private InputActionAsset inputActions;
-    [SerializeField, Tooltip("Child holding the meshes. Only this one tilts, never the Rigidbody.")]
+    [SerializeField, Tooltip("Child holding ALL the meshes. Only this one tilts, never the Rigidbody.")]
     private Transform visual;
+    [SerializeField, Tooltip("Starts parked (script off, body kinematic). VehiculeSeat turns the script on when the player gets in.")]
+    private bool startParked = true;
 
     [Header("Tilt")]
-    [SerializeField] private float maxTiltAngle = 20f;
+    [SerializeField, Tooltip("Maximum tilt of the body in degrees (forward, backward, left, right).")]
+    private float maxTiltAngle = 20f;
     [SerializeField, Tooltip("Degrees per second when a key is pressed. Low = heavy, slow to react.")]
     private float tiltRate = 45f;
     [SerializeField, Tooltip("Degrees per second when keys are released and the body levels out.")]
@@ -37,7 +40,7 @@ public class HelicopterController : MonoBehaviour
     private float yawResponse = 3f;
 
     [Header("Rotors")]
-    [SerializeField, Tooltip("Time for the rotors to reach full power. The helicopter answers the controls only with the rotors spinning.")]
+    [SerializeField, Tooltip("Time for the rotors to reach full power. The helicopter only moves once the rotors are spinning.")]
     private float rotorSpinUpTime = 1.5f;
     [SerializeField] private Transform rotor;
     [SerializeField] private Vector3 rotorAxis = Vector3.up;
@@ -63,10 +66,18 @@ public class HelicopterController : MonoBehaviour
     // 0 = rotors stopped, 1 = full power
     private float _power;
 
+    // Rotation the visual had in the editor, the tilt is applied on top of it
+    private Quaternion _visualBaseRotation = Quaternion.identity;
+
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
         _rb.useGravity = false;
+
+        if (visual != null)
+            _visualBaseRotation = visual.localRotation;
+        else
+            Debug.LogWarning("HelicopterController: 'Visual' is not assigned, the helicopter cannot tilt.", this);
 
         if (inputActions == null)
         {
@@ -90,6 +101,14 @@ public class HelicopterController : MonoBehaviour
         if (_moveAction == null || _elevationAction == null || _yawAction == null)
         {
             Debug.LogError("HelicopterController: actions 'Move', 'Elevation' or 'Yaw' not found in the 'Helicopter' map.", this);
+            enabled = false;
+            return;
+        }
+
+        // Whatever the checkbox says in the Inspector, nobody drives it at the start of the scene
+        if (startParked)
+        {
+            _rb.isKinematic = true;
             enabled = false;
         }
     }
@@ -124,7 +143,7 @@ public class HelicopterController : MonoBehaviour
         }
 
         if (visual != null)
-            visual.localRotation = Quaternion.identity;
+            visual.localRotation = _visualBaseRotation;
     }
 
     private void Update()
@@ -155,8 +174,8 @@ public class HelicopterController : MonoBehaviour
         Vector3 horizontalVel = new Vector3(vel.x, 0f, vel.z);
 
         // The tilt creates the acceleration : nose down pushes forward, leaning right pushes right
-        float forwardTilt = _pitch / maxTiltAngle;
-        float sideTilt = _roll / maxTiltAngle;
+        float forwardTilt = _pitch / Mathf.Max(maxTiltAngle, 0.01f);
+        float sideTilt = _roll / Mathf.Max(maxTiltAngle, 0.01f);
         Vector3 acceleration = newRotation * new Vector3(sideTilt, 0f, forwardTilt) * (maxTiltAcceleration * _power);
 
         horizontalVel += acceleration * dt;
@@ -177,10 +196,11 @@ public class HelicopterController : MonoBehaviour
 
     private void UpdateTilt()
     {
-        // The body tilts toward the keys, and slowly levels out when they are released
+        // Z / S tilt forward / backward, Q / D tilt left / right
         float targetPitch = _move.y * maxTiltAngle;
         float targetRoll = _move.x * maxTiltAngle;
 
+        // Fast when a key is pressed, slow when the body levels out
         float pitchRate = Mathf.Approximately(_move.y, 0f) ? tiltReturnRate : tiltRate;
         float rollRate = Mathf.Approximately(_move.x, 0f) ? tiltReturnRate : tiltRate;
 
@@ -191,7 +211,7 @@ public class HelicopterController : MonoBehaviour
 
         // Positive X rotation = nose down, negative Z rotation = lean right
         float bank = -_roll - (_yaw * yawBankAngle);
-        visual.localRotation = Quaternion.Euler(_pitch, 0f, bank);
+        visual.localRotation = _visualBaseRotation * Quaternion.Euler(_pitch, 0f, bank);
     }
 
     private void SpinRotors()

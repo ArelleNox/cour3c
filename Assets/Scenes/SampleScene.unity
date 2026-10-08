@@ -2385,17 +2385,18 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1474522107}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 69b062b53c4062b448d3dcad9d4e0dbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HelicopterController
   inputActions: {fileID: -944628639613478452, guid: ff1c1758752d3894d90843e80087994d, type: 3}
   visual: {fileID: 1950890548}
-  maxTiltAngle: 20
-  tiltRate: 45
-  tiltReturnRate: 25
-  yawBankAngle: 8
+  startParked: 1
+  maxTiltAngle: 65
+  tiltRate: 90
+  tiltReturnRate: 50
+  yawBankAngle: 16
   maxTiltAcceleration: 10
   horizontalDrag: 0.5
   maxHorizontalSpeed: 15
@@ -2428,7 +2429,7 @@ MonoBehaviour:
   vehicleCamera: {fileID: 465182890}
   enterExit: {fileID: 36262289}
   enterDistance: 3
-  requireGroundToExit: 0
+  requireGroundToExit: 1
   maxExitHeight: 3
   groundMask:
     serializedVersion: 2
@@ -2705,7 +2706,7 @@ MonoBehaviour:
   vehicleCamera: {fileID: 1427703531}
   enterExit: {fileID: 1422060312}
   enterDistance: 3
-  requireGroundToExit: 0
+  requireGroundToExit: 1
   maxExitHeight: 3
   groundMask:
     serializedVersion: 2

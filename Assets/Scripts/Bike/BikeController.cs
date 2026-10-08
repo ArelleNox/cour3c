@@ -60,7 +60,7 @@ public class BikeController : MonoBehaviour
             return;
         }
 
-        _actionMap = inputActions.FindActionMap("Vehicle");
+        _actionMap = inputActions.FindActionMap("Motorcycle");
         if (_actionMap == null)
         {
             Debug.LogError("BikeController: action map 'Vehicle' not found in the Input Actions asset.", this);

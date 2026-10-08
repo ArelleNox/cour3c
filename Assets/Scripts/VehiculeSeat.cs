@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
-// Generic seat : put one on each vehicle (bike, helicopter, train...).
+// Generic seat : put one on each vehicle (bike, helicopter, train.).
 public class VehiculeSeat : MonoBehaviour
 {
     [Header("Player")]
